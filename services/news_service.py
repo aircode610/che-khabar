@@ -59,11 +59,11 @@ class NewsService:
                     for item in new_items:
                         self.news_store.appendleft(item)
                         logger.info(f"[{item.published:%Y-%m-%d %H:%M}] {item.title}")
-                        # Send each new article to Telegram
-                        try:
-                            await telegram_bot.send_news(item)
-                        except Exception as e:
-                            logger.error(f"Failed to send article to Telegram: {e}")
+                        
+                        # try:
+                        #     await telegram_bot.send_news(item)
+                        # except Exception as e:
+                        #     logger.error(f"Failed to send article to Telegram: {e}")
                                         
                     if len(self.news_store) > settings.MAX_STORED_ARTICLES:
                         logger.info(f"Trimming to {settings.MAX_STORED_ARTICLES} articles")

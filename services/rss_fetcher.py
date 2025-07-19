@@ -1,14 +1,3 @@
-"""
-RSS feed fetching service.
-
-This module handles the core RSS feed fetching logic including:
-- HTTP requests with conditional GET headers
-- RSS/Atom feed parsing
-- New item detection and deduplication
-"""
-
-from __future__ import annotations
-
 import datetime as dt
 import hashlib
 from typing import List
@@ -19,84 +8,96 @@ import httpx
 from core.config import settings
 from models.news import FeedState, NewsItem
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def fetch_feed(url: str, state: FeedState) -> List[NewsItem]:
     """
     Fetch RSS feed and return only new items since last call.
-    
-    Uses conditional GET headers (ETag/Last-Modified) to minimize bandwidth
-    and server load when the feed hasn't changed.
-    
-    Args:
-        url: RSS feed URL to fetch
-        state: FeedState object to track changes and seen items
-        
-    Returns:
-        List of new NewsItem objects since last fetch
     """
-    
-    headers: dict[str, str] = {}
-    if state.etag:
-        headers["If-None-Match"] = state.etag
-    if state.modified:
-        headers["If-Modified-Since"] = state.modified
+    logger.info("\n=== Starting fetch cycle ===")
+    logger.info(f"Previous fetch: {state.last_fetch_time or 'Never'}")
 
     try:
         async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT_SECONDS) as client:
-            resp = await client.get(url, headers=headers)
-
-        # 304 = Not Modified - feed hasn't changed since last poll
-        if resp.status_code == 304:
-            print(f"[{dt.datetime.now():%H:%M:%S}] Feed unchanged (304)")
-            return []
-
-        if resp.status_code != 200:
-            print(f"[{dt.datetime.now():%H:%M:%S}] HTTP {resp.status_code} error fetching feed")
-            return []
-
-        # Parse the RSS feed
-        feed = feedparser.parse(resp.text)
-        
-        # Update cache headers for next request
-        state.etag = feed.get("etag")
-        state.modified = feed.get("modified")
-
-        fresh_items: List[NewsItem] = []
-        
-        for entry in feed.entries:
-            # Generate unique ID for each article
-            guid = entry.get("id") or hashlib.sha1(entry.link.encode()).hexdigest()
+            logger.info(f"Fetching from: {url}")
+            resp = await client.get(url)
             
-            # Skip if we've already seen this article
-            if guid in state.seen_ids:
-                continue
+            if resp.status_code != 200:
+                logger.error(f"Error status {resp.status_code}")
+                return []
 
-            state.seen_ids.add(guid)
+            feed = feedparser.parse(resp.text)
             
-            # Parse published date
-            try:
-                published = dt.datetime(*entry.published_parsed[:6])
-            except (AttributeError, TypeError, ValueError):
-                published = dt.datetime.utcnow()
+            latest_hash = generate_latest_hash(feed)
+            
+            if state.latest_hash:
+                if latest_hash == state.latest_hash:
+                    logger.info(f"Content unchanged (hash: {latest_hash[:8]}...)")
+                    return []
+                logger.info(f"Content changed (hash: {state.latest_hash[:8]}... -> {latest_hash[:8]}...)")
+            else:
+                logger.info(f"Initial fetch (hash: {latest_hash[:8]}...)")
 
-            # Create NewsItem object
-            fresh_items.append(
-                NewsItem(
-                    id=guid,
-                    title=entry.title,
-                    url=entry.link,
-                    published=published,
-                    summary=entry.get("summary", ""),
-                    source=feed.feed.get("title", url),
+            state.latest_hash = latest_hash
+            state.last_fetch_time = dt.datetime.now(dt.timezone.utc)
+            
+            fresh_items: List[NewsItem] = []
+            
+            logger.info(f"Found {len(feed.entries)} entries to process")
+            
+            for entry in feed.entries:
+                guid = str(entry.get("id") or hashlib.sha1(str(entry.link).encode()).hexdigest())
+                
+                if guid in state.seen_ids:
+                    continue
+
+                state.seen_ids.add(guid)
+                
+                try:
+                    if not entry.published_parsed or not isinstance(entry.published_parsed, tuple):
+                        raise ValueError("Invalid published_parsed format")
+                        
+                    year, month, day, hour, minute, second = entry.published_parsed[:6]
+                    published = dt.datetime(year, month, day, hour, minute, second)
+                except (AttributeError, TypeError, ValueError):
+                    published = dt.datetime.now(dt.timezone.utc)
+                    logger.warning(f"Failed to parse date for article {guid[:8]}...")
+
+                fresh_items.append(
+                    NewsItem(
+                        id=guid,
+                        published=published,
+                        title=str(entry.get("title")) if entry.get("title") else None,
+                        url=str(entry.get("link")) if entry.get("link") else None,
+                        summary=str(entry.get("summary")) if entry.get("summary") else None,
+                        source=str(getattr(feed.feed, 'title', None)) if getattr(feed.feed, 'title', None) else None,
+                    )
                 )
-            )
 
-        print(f"[{dt.datetime.now():%H:%M:%S}] Found {len(fresh_items)} new articles")
-        return fresh_items
+            logger.info(f"=== Fetch complete: {len(fresh_items)} articles ===\n")
+            return fresh_items
 
     except httpx.TimeoutException:
-        print(f"[{dt.datetime.now():%H:%M:%S}] Timeout fetching feed")
+        logger.error("Timeout fetching feed")
         return []
     except Exception as e:
-        print(f"[{dt.datetime.now():%H:%M:%S}] Error fetching feed: {e}")
-        return [] 
+        logger.error(f"Error fetching feed: {e}")
+        return []
+
+def generate_latest_hash(feed: feedparser.FeedParserDict) -> str:
+    """Generate a hash based only on the latest article's data."""
+    if not feed.entries:
+        return ""
+    
+    latest = feed.entries[0]
+    latest_data = (
+        latest.get("id", ""),
+        latest.get("title", ""),
+        latest.get("link", ""),
+        latest.get("published", ""),
+    )
+    
+    return hashlib.sha1(str(latest_data).encode()).hexdigest() 
+    

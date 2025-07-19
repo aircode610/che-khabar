@@ -1,43 +1,34 @@
-"""
-FastAPI RSS News Fetcher for BBC Middle East News - Main Application
-
-This is the main entry point for the application. It:
-1. Creates the FastAPI app with proper configuration
-2. Includes API routes
-3. Manages application lifespan (startup/shutdown)
-4. Starts/stops the RSS polling service
-
-Usage:
-    uvicorn main:app --reload
-"""
-
+import logging
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
 from api.routes import router
-from core.config import settings
 from services.news_service import news_service
+from core.config import settings
 
+# Configure service loggers
+logging.basicConfig(
+    level=logging.INFO,
+    format=settings.LOG_FORMAT,
+    datefmt=settings.LOG_DATE_FORMAT
+)
+
+logger = logging.getLogger(__name__)
+logging.getLogger('services.rss_fetcher').setLevel(logging.INFO)
+logging.getLogger('services.news_service').setLevel(logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Manage application lifespan events.
-    
-    Startup: Start the RSS polling service
-    Shutdown: Stop the RSS polling service gracefully
-    """
+    """Manage application lifespan events."""
     # Startup
-    print(f"[STARTUP] Starting {settings.API_TITLE}")
+    logger.info(f"Starting {settings.API_TITLE}")
     await news_service.start_polling()
     
-    yield  # Application runs here
+    yield
     
     # Shutdown
-    print(f"[SHUTDOWN] Stopping {settings.API_TITLE}")
+    logger.info(f"Stopping {settings.API_TITLE}")
     await news_service.stop_polling()
-
 
 # Create FastAPI application
 app = FastAPI(
@@ -52,8 +43,7 @@ app = FastAPI(
 # Include API routes
 app.include_router(router)
 
-
-# For debugging - can be removed in production
+# For debugging
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

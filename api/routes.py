@@ -1,19 +1,9 @@
-"""
-FastAPI routes for the news API.
-
-This module defines all API endpoints for:
-- Getting news articles
-- Searching news
-- Feed status and statistics
-"""
-
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
+from datetime import datetime, timezone
 
 from core.config import settings
 from services.news_service import news_service
 
-# Create API router
 router = APIRouter()
 
 
@@ -45,27 +35,21 @@ async def get_all_news():
 
 @router.get("/news/latest")
 @router.get("/news/latest/{count}")
-async def get_latest_news(count: int = 10):
-    """
-    Get the latest N news articles.
-    
-    Args:
-        count: Number of articles to return (default: 10, max: 50)
-    """
+async def get_latest_news(count: int = settings.DEFAULT_ARTICLES_COUNT):
+    """Get the latest N news articles."""
     if count <= 0:
         raise HTTPException(
             status_code=400, 
             detail="Count must be positive"
         )
     
-    if count > 50:
+    if count > settings.MAX_ARTICLES_PER_REQUEST:
         raise HTTPException(
             status_code=400,
-            detail="Count cannot exceed 50"
+            detail=f"Count cannot exceed {settings.MAX_ARTICLES_PER_REQUEST}"
         )
     
     latest_items = news_service.get_latest_news(count)
-    
     return {
         "requested_count": count,
         "returned_count": len(latest_items),
@@ -75,16 +59,11 @@ async def get_latest_news(count: int = 10):
 
 @router.get("/news/search/{keyword}")
 async def search_news(keyword: str):
-    """
-    Search news articles by keyword in title or summary.
-    
-    Args:
-        keyword: Search term to look for
-    """
-    if len(keyword.strip()) < 2:
+    """Search news articles by keyword in title or summary."""
+    if len(keyword.strip()) < settings.MIN_SEARCH_LENGTH:
         raise HTTPException(
             status_code=400,
-            detail="Search keyword must be at least 2 characters long"
+            detail=f"Search keyword must be at least {settings.MIN_SEARCH_LENGTH} characters long"
         )
     
     matching_articles = news_service.search_news(keyword)
@@ -111,5 +90,6 @@ async def health_check():
         "status": "healthy",
         "polling_active": feed_status["polling_active"],
         "articles_count": feed_status["total_articles_stored"],
-        "timestamp": "2025-01-18T12:00:00Z"  # Would use actual timestamp in production
+        "timestamp": datetime.now(timezone.utc).isoformat()
     } 
+    

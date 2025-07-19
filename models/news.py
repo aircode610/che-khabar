@@ -1,29 +1,20 @@
-"""
-Data models for the RSS news fetcher application.
-
-This module contains the core data structures used throughout the application:
-- NewsItem: Represents a single news article
-- FeedState: Tracks RSS feed state for efficient polling
-"""
-
-from __future__ import annotations
-
 import datetime as dt
 from dataclasses import dataclass, field
 from typing import Optional, Set
-
 
 @dataclass
 class FeedState:
     """
     Cache for a single RSS/Atom feed to track changes efficiently.
     
-    Uses HTTP caching headers (ETag/Last-Modified) to minimize bandwidth
-    and server load when the feed hasn't changed.
+    Tracks:
+    - Content hash of latest article
+    - Last successful fetch time
+    - Set of seen article IDs to prevent duplicates
     """
     
-    etag: Optional[str] = None
-    modified: Optional[str] = None  # RFC-822 string for Last-Modified header
+    latest_hash: Optional[str] = None 
+    last_fetch_time: Optional[dt.datetime] = None
     seen_ids: Set[str] = field(default_factory=set)
 
 
@@ -37,11 +28,11 @@ class NewsItem:
     """
     
     id: str
-    title: str
-    url: str
     published: dt.datetime
-    summary: str
-    source: str
+    title: Optional[str] = None
+    url: Optional[str] = None
+    summary: Optional[str] = None
+    source: Optional[str] = None
 
     def to_dict(self) -> dict:
         """
@@ -58,3 +49,4 @@ class NewsItem:
             "summary": self.summary,
             "source": self.source
         } 
+        

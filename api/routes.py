@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timezone
+from typing import Optional
 
 from core.config import settings
 from services.news_service import news_service
+from services.semantic_search import SemanticSearchService
 
 router = APIRouter()
 
@@ -18,6 +20,7 @@ async def read_root():
             "all_news": "/news",
             "latest_news": "/news/latest/{count}",
             "search_news": "/news/search/{keyword}",
+            "semantic_search": "/news/semantic/{query}",
             "feed_status": "/news/status"
         }
     }
@@ -72,6 +75,57 @@ async def search_news(keyword: str):
         "keyword": keyword,
         "total_matches": len(matching_articles),
         "articles": [item.to_dict() for item in matching_articles]
+    }
+
+
+@router.get("/news/semantic/{query}")
+async def semantic_search(
+    query: str,
+    min_threshold: float = Query(0.5, ge=0.0, le=1.0),
+    title_weight: Optional[float] = Query(None, ge=0.0, le=1.0),
+    summary_weight: Optional[float] = Query(None, ge=0.0, le=1.0),
+    max_results: int = Query(10, ge=1, le=settings.MAX_ARTICLES_PER_REQUEST)
+):
+    """
+    Search news articles using semantic similarity with fine-tuned weights and thresholds.
+    
+    Args:
+        query: The search query to match against articles
+        min_threshold: Minimum similarity score (0.0 to 1.0) to include in results
+        title_weight: Optional weight for title embedding (0.0 to 1.0)
+        summary_weight: Optional weight for summary embedding (0.0 to 1.0)
+        max_results: Maximum number of results to return
+    """
+    if len(query.strip()) < settings.MIN_SEARCH_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Search query must be at least {settings.MIN_SEARCH_LENGTH} characters long"
+        )
+    
+    if (title_weight is None) != (summary_weight is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Both title_weight and summary_weight must be provided together"
+        )
+    
+    results = news_service.semantic_search(
+        query=query,
+        min_threshold=min_threshold,
+        title_weight=title_weight,
+        summary_weight=summary_weight,
+        max_results=max_results
+    )
+    
+    return {
+        "query": query,
+        "parameters": {
+            "min_threshold": min_threshold,
+            "title_weight": title_weight or SemanticSearchService.TITLE_WEIGHT,
+            "summary_weight": summary_weight or SemanticSearchService.SUMMARY_WEIGHT,
+            "max_results": max_results
+        },
+        "total_matches": len(results),
+        "results": [result.to_dict() for result in results]
     }
 
 

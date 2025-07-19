@@ -5,7 +5,6 @@ from typing import List
 import feedparser
 import httpx
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from core.config import settings
 from models.news import FeedState, NewsItem

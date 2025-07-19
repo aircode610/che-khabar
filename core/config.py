@@ -2,6 +2,11 @@ import numpy as np
 from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
 from typing import Optional
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class Settings:
     """Application configuration settings."""
@@ -34,6 +39,33 @@ class Settings:
     _model: Optional[SentenceTransformer] = None
     _user_interest_embedding: Optional[NDArray[np.float32]] = None
 
+    # Telegram Configuration
+    TELEGRAM_DATE_FORMAT: str = "%Y-%m-%d %H:%M:%S"
+    TELEGRAM_MESSAGE_TEMPLATE = {
+        'TITLE': "*{title}*",
+        'DATE': "📅 {date}",
+        'SUMMARY': "{summary}",
+        'SOURCE': "🔍 _{source}_",
+        'LINK': "🔗 {url}"
+    }
+
+    @property
+    def telegram_bot_token(self) -> str:
+        """Get the Telegram bot token from environment variables."""
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        if not token:
+            raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
+        return token
+
+    @property
+    def telegram_chat_id(self) -> str:
+        """Get the Telegram chat ID from environment variables."""
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        if not chat_id:
+            raise ValueError("TELEGRAM_CHAT_ID not found in environment variables")
+        return chat_id
+
+    # Sentence Transformer Configuration
     @property
     def model(self) -> SentenceTransformer:
         """Lazy load the sentence transformer model."""

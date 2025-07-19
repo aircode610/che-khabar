@@ -53,4 +53,4 @@ class NewsItem:
             "summary": self.summary,
             "source": self.source,
             "embedding": self.embedding.tolist() if self.embedding is not None else None
-        } 
+        }

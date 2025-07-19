@@ -9,7 +9,7 @@ logger.setLevel(logging.INFO)
 
 
 class TelegramBot:
-    def __init__(self, token: str = None, chat_id: str = None):
+    def __init__(self, token: str | None = None, chat_id: str | None = None):
         """
         Initialize Telegram bot with token and chat ID.
         If not provided, will use values from environment variables.
@@ -18,16 +18,17 @@ class TelegramBot:
         self.chat_id = chat_id or settings.telegram_chat_id
         self.bot = Bot(token=self.token)
     
-    async def send_news(self, news_item: NewsItem):
+    def send_news(self, news_item: NewsItem):
         """Send a news item to Telegram."""
         try:
             message = self._format_message(news_item)
-            await self.bot.send_message(
+            result = self.bot.send_message(
                 chat_id=self.chat_id,
                 text=message,
                 parse_mode='Markdown'
             )
             logger.info(f"Sent news: {news_item.title}")
+            return result
         except Exception as e:
             logger.error(f"Failed to send message: {str(e)}")
     

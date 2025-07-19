@@ -4,6 +4,8 @@ from typing import List
 
 import feedparser
 import httpx
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
 from core.config import settings
 from models.news import FeedState, NewsItem
@@ -65,14 +67,25 @@ async def fetch_feed(url: str, state: FeedState) -> List[NewsItem]:
                     published = dt.datetime.now(dt.timezone.utc)
                     logger.warning(f"Failed to parse date for article {guid[:8]}...")
 
+                title = str(entry.get("title")) if entry.get("title") else None
+                summary = str(entry.get("summary")) if entry.get("summary") else None
+                
+                text_to_embed = " ".join(filter(None, [title, summary]))
+                if text_to_embed:
+                    tensor = settings.model.encode(text_to_embed)
+                    embedding = np.array(tensor, dtype=np.float32)
+                else:
+                    embedding = None
+
                 fresh_items.append(
                     NewsItem(
                         id=guid,
                         published=published,
-                        title=str(entry.get("title")) if entry.get("title") else None,
+                        title=title,
                         url=str(entry.get("link")) if entry.get("link") else None,
-                        summary=str(entry.get("summary")) if entry.get("summary") else None,
+                        summary=summary,
                         source=str(getattr(feed.feed, 'title', None)) if getattr(feed.feed, 'title', None) else None,
+                        embedding=embedding
                     )
                 )
 

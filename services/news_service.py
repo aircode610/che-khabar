@@ -8,6 +8,7 @@ from models.news import FeedState, NewsItem
 from models.semantic_search import SemanticSearchResult
 from services.rss_fetcher import fetch_feed
 from services.semantic_search import semantic_search_service
+from services.telegram_service import telegram_bot
 
 logging.basicConfig(
     format=settings.LOG_FORMAT,
@@ -58,6 +59,11 @@ class NewsService:
                     for item in new_items:
                         self.news_store.appendleft(item)
                         logger.info(f"[{item.published:%Y-%m-%d %H:%M}] {item.title}")
+                        
+                        # try:
+                        #     await telegram_bot.send_news(item)
+                        # except Exception as e:
+                        #     logger.error(f"Failed to send article to Telegram: {e}")
                                         
                     if len(self.news_store) > settings.MAX_STORED_ARTICLES:
                         logger.info(f"Trimming to {settings.MAX_STORED_ARTICLES} articles")

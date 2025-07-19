@@ -1,6 +1,8 @@
 import datetime as dt
 from dataclasses import dataclass, field
 from typing import Optional, Set
+import numpy as np
+from numpy.typing import NDArray
 
 @dataclass
 class FeedState:
@@ -24,7 +26,8 @@ class NewsItem:
     Represents a single news article from the RSS feed.
     
     Contains all relevant information about a news article including
-    metadata for API serialization.
+    metadata for API serialization and sentence transformer embeddings 
+    for semantic similarity matching.
     """
     
     id: str
@@ -33,6 +36,7 @@ class NewsItem:
     url: Optional[str] = None
     summary: Optional[str] = None
     source: Optional[str] = None
+    embedding: Optional[NDArray[np.float32]] = None
 
     def to_dict(self) -> dict:
         """
@@ -47,6 +51,6 @@ class NewsItem:
             "url": self.url,
             "published": self.published.isoformat(),
             "summary": self.summary,
-            "source": self.source
+            "source": self.source,
+            "embedding": self.embedding.tolist() if self.embedding is not None else None
         } 
-        

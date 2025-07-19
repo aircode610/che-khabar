@@ -1,3 +1,8 @@
+import numpy as np
+from numpy.typing import NDArray
+from sentence_transformers import SentenceTransformer
+from typing import Optional
+
 class Settings:
     """Application configuration settings."""
     
@@ -22,5 +27,26 @@ class Settings:
     # Logging Configuration
     LOG_FORMAT: str = "[%(asctime)s] %(message)s"
     LOG_DATE_FORMAT: str = "%H:%M:%S"
+
+    # User Interest Configuration
+    USER_INTEREST_PROMPT: str = "Iran and Israel war news"
+    EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
+    _model: Optional[SentenceTransformer] = None
+    _user_interest_embedding: Optional[NDArray[np.float32]] = None
+
+    @property
+    def model(self) -> SentenceTransformer:
+        """Lazy load the sentence transformer model."""
+        if self._model is None:
+            self._model = SentenceTransformer(self.EMBEDDING_MODEL_NAME)
+        return self._model
+
+    @property
+    def user_interest_embedding(self) -> NDArray[np.float32]:
+        """Get the embedding for the user interest prompt."""
+        if self._user_interest_embedding is None:
+            tensor = self.model.encode(self.USER_INTEREST_PROMPT)
+            self._user_interest_embedding = np.array(tensor, dtype=np.float32)
+        return self._user_interest_embedding
 
 settings = Settings() 

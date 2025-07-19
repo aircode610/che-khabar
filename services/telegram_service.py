@@ -1,5 +1,5 @@
 import logging
-from telegram import Bot
+from telegram.ext import ExtBot
 
 from models.news import NewsItem
 from core.config import settings
@@ -16,21 +16,28 @@ class TelegramBot:
         """
         self.token = token or settings.telegram_bot_token
         self.chat_id = chat_id or settings.telegram_chat_id
-        self.bot = Bot(token=self.token)
+        self.bot = ExtBot(token=self.token)
     
-    def send_news(self, news_item: NewsItem):
+    async def send_news(self, news_item: NewsItem):
         """Send a news item to Telegram."""
         try:
             message = self._format_message(news_item)
-            result = self.bot.send_message(
-                chat_id=self.chat_id,
-                text=message,
-                parse_mode='Markdown'
-            )
-            logger.info(f"Sent news: {news_item.title}")
-            return result
+            async with self.bot:
+                result = await self.bot.send_message(
+                    chat_id=self.chat_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                logger.info(f"Sent news: {news_item.title}")
+                return result
         except Exception as e:
             logger.error(f"Failed to send message: {str(e)}")
+            async with self.bot:
+                return await self.bot.send_message(
+                    chat_id=self.chat_id,
+                    text=f"Failed to send news: {str(e)}",
+                    parse_mode='Markdown'
+                )
     
     def _format_message(self, news_item: NewsItem) -> str:
         """Format the news item as a message with Markdown."""

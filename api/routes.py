@@ -87,18 +87,13 @@ async def get_topic_groups():
     """Get all topic groups with their news IDs."""
     try:
         topics = news_service.clustering_service.get_all_topics()
-        if not topics:
-            return {
-                "total_topics": 0,
-                "topics": {},
-                "message": "No topics available yet. Topics will be created once enough articles are collected."
-            }
+
         return {
             "total_topics": len(topics),
             "topics": topics
         }
+
     except Exception as e:
-        # logger.error(f"Error getting topic groups: {e}") # Original code had this line commented out
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error retrieving topic groups"
@@ -109,18 +104,13 @@ async def get_topic_groups_with_keywords():
     """Get all topic groups with news IDs and keywords."""
     try:
         topics = news_service.clustering_service.get_all_topics_with_keywords()
-        if not topics:
-            return {
-                "total_topics": 0,
-                "topics": {},
-                "message": "No topics available yet. Topics will be created once enough articles are collected."
-            }
+
         return {
             "total_topics": len(topics),
             "topics": topics
         }
+
     except Exception as e:
-        # logger.error(f"Error getting detailed topic groups: {e}") # Original code had this line commented out
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error retrieving detailed topic groups"
@@ -131,19 +121,22 @@ async def get_topic_info(topic_id: int):
     """Get detailed information about a specific topic."""
     try:
         topic_info = news_service.clustering_service.get_topic_info(topic_id)
+
         if not topic_info:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Topic {topic_id} not found or not yet processed"
             )
+
         return topic_info
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
     except Exception as e:
-        # logger.error(f"Error getting topic info: {e}") # Original code had this line commented out
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error retrieving topic information"
@@ -168,7 +161,6 @@ async def health_check():
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
-        # logger.error(f"Health check failed: {e}") # Original code had this line commented out
         return {
             "status": "unhealthy",
             "error": str(e),
